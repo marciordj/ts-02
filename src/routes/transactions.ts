@@ -4,10 +4,36 @@ import { z } from 'zod'
 import crypto from 'node:crypto'
 
 export async function transactionRoutes(app: FastifyInstance) {
-  app.get('/list-transactions', async () => {
-    const listTransactions = await knex('transactions').select('*')
+  app.get('/', async () => {
+    const listTransactions = await knex('transactions').select()
 
-    return listTransactions
+    return {
+      listTransactions,
+    }
+  })
+
+  app.get('/:id', async (request) => {
+    const requestSchema = z.object({
+      id: z.string().uuid(),
+    })
+
+    const { id } = requestSchema.parse(request.params)
+
+    const findTransaction = await knex('transactions').where('id', id).first()
+
+    return {
+      findTransaction,
+    }
+  })
+
+  app.get('/resume', async () => {
+    const resumeTransactions = await knex('transactions')
+      .sum('amount', { as: 'amount' })
+      .first()
+
+    return {
+      resumeTransactions,
+    }
   })
 
   app.post('/', async (request, response) => {
