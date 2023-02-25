@@ -1,11 +1,21 @@
 import { FastifyInstance } from 'fastify'
 import { knex } from '../database'
 import { z } from 'zod'
-import crypto from 'node:crypto'
+import crypto, { randomUUID } from 'node:crypto'
 
 export async function transactionRoutes(app: FastifyInstance) {
-  app.get('/', async () => {
-    const listTransactions = await knex('transactions').select()
+  app.get('/', async (request, reply) => {
+    const sessionId = request.cookies.sessionId
+
+    if (!sessionId) {
+      return reply.status(401).send({
+        error: 'Não autorizado',
+      })
+    }
+
+    const listTransactions = await knex('transactions')
+      .select()
+      .where('session_id', sessionId)
 
     return {
       listTransactions,
@@ -36,21 +46,34 @@ export async function transactionRoutes(app: FastifyInstance) {
     }
   })
 
-  app.post('/', async (request, response) => {
+  app.post('/', async (request, reply) => {
+    // Fastify use reply instead response
     const createTrasactionsSchema = z.object({
       title: z.string(),
       amount: z.number(),
       type: z.enum(['credit', 'debit']),
     })
 
-    const body = createTrasactionsSchema.parse(request.body)
+    const { title, amount, type } = createTrasactionsSchema.parse(request.body)
+
+    let sessionId = request.cookies.sessionId
+
+    if (!sessionId) {
+      sessionId = randomUUID()
+
+      reply.cookie('sessionId', sessionId, {
+        path: '/',
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 dias
+      })
+    }
 
     await knex('transactions').insert({
       id: crypto.randomUUID(),
-      title: body.title,
-      amount: body.type === 'credit' ? body.amount : body.amount * -1,
+      title,
+      amount: type === 'credit' ? amount : amount * -1,
+      session_id: sessionId,
     })
 
-    return response.status(201).send()
+    return reply.status(201).send()
   })
 }
