@@ -5,6 +5,10 @@ import crypto, { randomUUID } from 'node:crypto'
 import { checkSessionIdExist } from '../middlewares/checkSessionIdExist'
 
 export async function transactionRoutes(app: FastifyInstance) {
+  app.addHook('preHandler', async (request, reply) => {
+    console.log(`[${request.method}] ${request.url}`)
+  }) // Vai chamar esse hook neste contexto em todas as rotas, se eu quiser chamar em todas as rotas, basta colocar no arquivo de rotas antes delas.
+
   app.get(
     '/',
     {
